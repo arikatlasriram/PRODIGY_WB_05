@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="SkyPulse - A beautiful real-time weather app that shows current conditions, 5-day forecast, UV index, wind, humidity, and more for any city worldwide." />
+  <meta name="keywords" content="weather app, forecast, temperature, humidity, wind speed, UV index" />
+  <meta name="author" content="Sriram Arikatla" />
+  <title>SkyPulse – Real-Time Weather</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Animated Background -->
+  <div class="bg-orbs" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="orb orb-4"></div>
+  </div>
+
+  <!-- Particle Canvas -->
+  <canvas id="particleCanvas" aria-hidden="true"></canvas>
+
+  <!-- Main App -->
+  <div class="app-container">
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo">
+        <span class="logo-icon">🌤</span>
+        <span class="logo-text">SkyPulse</span>
+      </div>
+      <div class="header-controls">
+        <!-- Auth Controls -->
+        <div id="authControls" class="auth-controls">
+          <button id="loginBtn" class="auth-btn">Login</button>
+          <button id="signupBtn" class="auth-btn primary">Sign Up</button>
+        </div>
+        <div id="userProfile" class="user-profile" style="display:none;">
+          <span id="userNameDisplay" class="user-name"></span>
+          <button id="logoutBtn" class="auth-btn">Logout</button>
+        </div>
+        <!-- Theme & Unit Controls -->
+        <button id="unitToggle" class="unit-btn" aria-label="Toggle temperature unit" title="Switch °C / °F">
+          <span id="unitLabel">°C</span>
+        </button>
+        <button id="themeToggle" class="theme-btn" aria-label="Toggle dark/light theme">
+          <span id="themeIcon">🌙</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Search Section -->
+    <section class="search-section" aria-label="Search for a city">
+      <div class="search-wrapper">
+        <div class="search-box" id="searchBox">
+          <span class="search-icon">🔍</span>
+          <input
+            type="text"
+            id="cityInput"
+            placeholder="Search any city…"
+            autocomplete="off"
+            aria-label="Enter city name"
+            spellcheck="false"
+          />
+          <button id="clearBtn" class="clear-btn" aria-label="Clear search" style="display:none;">✕</button>
+        </div>
+        <button id="searchBtn" class="search-submit-btn" aria-label="Search weather">
+          <span>Search</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button id="gpsBtn" class="gps-btn" aria-label="Use my location" title="Detect my location">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+            <circle cx="12" cy="12" r="8" stroke-opacity="0.4"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Search Suggestions -->
+      <div id="suggestions" class="suggestions-dropdown" role="listbox" aria-label="City suggestions" style="display:none;"></div>
+    </section>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="loading-state" style="display:none;" aria-live="polite">
+      <div class="loader-ring"></div>
+      <p>Fetching weather data…</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="error-state" style="display:none;" role="alert">
+      <div class="error-icon">⚠️</div>
+      <h2 id="errorTitle">Oops! City not found</h2>
+      <p id="errorMsg">Please check the spelling or try another city.</p>
+      <button id="retryBtn" class="retry-btn">Try Again</button>
+    </div>
+
+    <!-- Welcome State -->
+    <div id="welcomeState" class="welcome-state" aria-live="polite">
+      <div class="welcome-animation">
+        <div class="welcome-icon">🌍</div>
+        <h2>Discover the Weather</h2>
+        <p>Search any city or use GPS to get real-time weather, forecasts, and more</p>
+        <div class="popular-cities">
+          <p class="popular-label">Popular cities</p>
+          <div class="city-chips" role="list">
+            <button class="city-chip" role="listitem" data-city="London">🇬🇧 London</button>
+            <button class="city-chip" role="listitem" data-city="New York">🇺🇸 New York</button>
+            <button class="city-chip" role="listitem" data-city="Tokyo">🇯🇵 Tokyo</button>
+            <button class="city-chip" role="listitem" data-city="Dubai">🇦🇪 Dubai</button>
+            <button class="city-chip" role="listitem" data-city="Hyderabad">🇮🇳 Hyderabad</button>
+            <button class="city-chip" role="listitem" data-city="Paris">🇫🇷 Paris</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weather Dashboard -->
+    <main id="weatherDashboard" class="weather-dashboard" style="display:none;" aria-label="Weather information">
+
+      <!-- Hero Card – Current Weather -->
+      <div class="hero-card glass-card" id="heroCard">
+        <div class="hero-left">
+          <div class="location-info">
+            <h1 id="cityName" class="city-name"></h1>
+            <button id="favoriteBtn" class="favorite-btn" aria-label="Add to favorites" title="Add to favorites" style="display:none;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="favoriteIcon">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+              </svg>
+            </button>
+            <p id="countryName" class="country-name"></p>
+            <p id="dateTime" class="date-time"></p>
+          </div>
+          <div class="temp-main">
+            <span id="tempValue" class="temp-value"></span>
+            <span class="temp-unit-display" id="tempUnitDisplay">°C</span>
+          </div>
+          <p id="weatherDesc" class="weather-desc"></p>
+          <div class="feels-like">
+            <span>Feels like </span><span id="feelsLike"></span>
+          </div>
+          <div class="min-max-row">
+            <span class="temp-badge high">↑ <span id="tempMax"></span></span>
+            <span class="temp-badge low">↓ <span id="tempMin"></span></span>
+          </div>
+        </div>
+        <div class="hero-right">
+          <div class="weather-anim-container">
+            <canvas id="weatherCanvas" width="200" height="200" aria-label="Weather animation"></canvas>
+          </div>
+          <div class="aqi-badge" id="aqiBadge" style="display:none;">
+            <span class="aqi-label">AQI</span>
+            <span id="aqiValue" class="aqi-value"></span>
+            <span id="aqiStatus" class="aqi-status"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Row -->
+      <div class="stats-grid">
+        <div class="stat-card glass-card" id="humidityCard">
+          <div class="stat-icon">💧</div>
+          <div class="stat-info">
+            <p class="stat-label">Humidity</p>
+            <p class="stat-value" id="humidity"></p>
+            <div class="stat-bar"><div class="stat-fill" id="humidityBar"></div></div>
+          </div>
+        </div>
+        <div class="stat-card glass-card" id="windCard">
+          <div class="stat-icon">🌬️</div>
+          <div class="stat-info">
+            <p class="stat-label">Wind Speed</p>
+            <p class="stat-value" id="windSpeed"></p>
+            <p class="stat-sub" id="windDir"></p>
+          </div>
+        </div>
+        <div class="stat-card glass-card" id="pressureCard">
+          <div class="stat-icon">🌡️</div>
+          <div class="stat-info">
+            <p class="stat-label">Pressure</p>
+            <p class="stat-value" id="pressure"></p>
+            <p class="stat-sub">hPa</p>
+          </div>
+        </div>
+        <div class="stat-card glass-card" id="visibilityCard">
+          <div class="stat-icon">👁️</div>
+          <div class="stat-info">
+            <p class="stat-label">Visibility</p>
+            <p class="stat-value" id="visibility"></p>
+            <p class="stat-sub">km</p>
+          </div>
+        </div>
+        <div class="stat-card glass-card" id="uvCard">
+          <div class="stat-icon">☀️</div>
+          <div class="stat-info">
+            <p class="stat-label">UV Index</p>
+            <p class="stat-value" id="uvIndex">–</p>
+            <p class="stat-sub" id="uvStatus">–</p>
+          </div>
+        </div>
+        <div class="stat-card glass-card" id="cloudCard">
+          <div class="stat-icon">☁️</div>
+          <div class="stat-info">
+            <p class="stat-label">Cloud Cover</p>
+            <p class="stat-value" id="cloudCover"></p>
+            <div class="stat-bar"><div class="stat-fill" id="cloudBar"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sun Rise / Set -->
+      <div class="sun-card glass-card">
+        <h2 class="section-title">☀️ Sun Schedule</h2>
+        <div class="sun-track">
+          <div class="sun-info">
+            <span class="sun-label">🌅 Sunrise</span>
+            <span class="sun-time" id="sunrise"></span>
+          </div>
+          <div class="sun-arc-wrapper" aria-hidden="true">
+            <svg viewBox="0 0 200 100" class="sun-arc-svg">
+              <defs>
+                <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#f97316"/>
+                  <stop offset="50%" stop-color="#facc15"/>
+                  <stop offset="100%" stop-color="#fb923c"/>
+                </linearGradient>
+              </defs>
+              <path d="M10,90 Q100,-20 190,90" fill="none" stroke="url(#arcGrad)" stroke-width="2.5" stroke-dasharray="5,4" opacity="0.5"/>
+              <circle id="sunDot" cx="100" cy="10" r="7" fill="#facc15" filter="url(#sunGlow)"/>
+              <defs>
+                <filter id="sunGlow">
+                  <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                  <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+              </defs>
+            </svg>
+          </div>
+          <div class="sun-info">
+            <span class="sun-label">🌇 Sunset</span>
+            <span class="sun-time" id="sunset"></span>
+          </div>
+        </div>
+        <div class="daylight-info">
+          <span>🕐 Daylight: <strong id="daylightHours"></strong></span>
+        </div>
+      </div>
+
+      <!-- Today's Summary -->
+      <div class="summary-card glass-card">
+        <h2 class="section-title">📊 Today's Summary</h2>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <span class="summary-icon">🌅</span>
+            <span class="summary-label">Morning</span>
+            <span class="summary-temp" id="mornTemp">--</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-icon">☀️</span>
+            <span class="summary-label">Day</span>
+            <span class="summary-temp" id="dayTemp">--</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-icon">🌇</span>
+            <span class="summary-label">Evening</span>
+            <span class="summary-temp" id="eveTemp">--</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-icon">🌙</span>
+            <span class="summary-label">Night</span>
+            <span class="summary-temp" id="nightTemp">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hourly Forecast -->
+      <div class="forecast-card glass-card">
+        <h2 class="section-title">⏱ Hourly Forecast</h2>
+        <div class="hourly-scroll" id="hourlyForecast" aria-label="Hourly forecast">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- 5-Day Forecast -->
+      <div class="forecast-card glass-card">
+        <h2 class="section-title">📅 5-Day Forecast</h2>
+        <div class="daily-forecast" id="dailyForecast" aria-label="5-day forecast">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Weather Map Placeholder -->
+      <div class="map-card glass-card">
+        <h2 class="section-title">🗺️ Weather Map</h2>
+        <div class="map-wrapper" id="weatherMapWrapper">
+          <iframe
+            id="weatherMap"
+            title="Weather Map"
+            frameborder="0"
+            allowfullscreen
+            aria-label="Interactive weather map"
+            loading="lazy"
+          ></iframe>
+          <div class="map-overlay">
+            <span class="map-badge">Powered by OpenWeatherMap</span>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Built with ❤️ by <strong>Sriram Arikatla</strong> · Data from OpenWeatherMap</p>
+    </footer>
+
+  </div>
+
+  <!-- API Key Modal -->
+  <div id="apiModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle" style="display:none;">
+    <div class="modal-box glass-card">
+      <div class="modal-header">
+        <span class="modal-emoji">🔑</span>
+        <h2 id="modalTitle">Enter Your API Key</h2>
+      </div>
+      <p class="modal-desc">
+        SkyPulse uses the <strong>OpenWeatherMap</strong> free API.<br/>
+        Get your free key at <a href="https://openweathermap.org/api" target="_blank" rel="noopener">openweathermap.org</a>
+      </p>
+      <div class="modal-input-wrap">
+        <input type="text" id="apiKeyInput" placeholder="Paste your API key here…" aria-label="OpenWeatherMap API Key" autocomplete="off"/>
+        <button id="showKeyBtn" class="eye-btn" aria-label="Toggle key visibility">👁</button>
+      </div>
+      <div id="apiKeyError" class="api-key-error" style="display:none;">❌ Invalid API key. Please check and try again.</div>
+      <div class="modal-actions">
+        <button id="saveApiKey" class="save-key-btn">Save & Continue</button>
+      </div>
+      <p class="modal-note">🔒 Your key is stored locally and never shared.</p>
+    </div>
+  </div>
+
+  <!-- Auth Modals -->
+  <div id="authModal" class="modal-overlay" role="dialog" aria-modal="true" style="display:none;">
+    <div class="modal-box glass-card auth-modal-box">
+      <button class="close-modal-btn" aria-label="Close modal">✕</button>
+      
+      <!-- Login Form -->
+      <div id="loginFormContainer" class="auth-form-container">
+        <h2>Welcome Back</h2>
+        <p class="modal-desc">Login to access your favorite cities and history.</p>
+        <form id="loginForm" class="auth-form">
+          <input type="email" id="loginEmail" placeholder="Email Address" required />
+          <input type="password" id="loginPassword" placeholder="Password" required />
+          <div id="loginError" class="api-key-error" style="display:none;"></div>
+          <button type="submit" class="save-key-btn">Login</button>
+        </form>
+        <p class="modal-note">Don't have an account? <a href="#" id="switchToSignup">Sign Up</a></p>
+      </div>
+
+      <!-- Signup Form -->
+      <div id="signupFormContainer" class="auth-form-container" style="display:none;">
+        <h2>Create Account</h2>
+        <p class="modal-desc">Join SkyPulse to save your weather preferences.</p>
+        <form id="signupForm" class="auth-form">
+          <input type="text" id="signupUsername" placeholder="Username" required />
+          <input type="email" id="signupEmail" placeholder="Email Address" required />
+          <input type="password" id="signupPassword" placeholder="Password (min 6 chars)" required minlength="6" />
+          <div id="signupError" class="api-key-error" style="display:none;"></div>
+          <button type="submit" class="save-key-btn">Sign Up</button>
+        </form>
+        <p class="modal-note">Already have an account? <a href="#" id="switchToLogin">Login</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Weather Assistant Floating UI -->
+  <div id="aiChatBubble" class="ai-chat-bubble" aria-label="Open AI Assistant" title="Ask AI Weather Assistant">
+    <span>🤖</span>
+  </div>
+
+  <div id="aiChatContainer" class="ai-chat-container glass-card" style="display:none;">
+    <div class="ai-chat-header">
+      <div class="ai-chat-title">
+        <span class="ai-emoji">🤖</span>
+        <div>
+          <h3>SkyPulse Assistant</h3>
+          <span class="ai-status-text">Powered by Gemini AI</span>
+        </div>
+      </div>
+      <button id="closeAiChat" class="close-ai-chat" aria-label="Close Chat">✕</button>
+    </div>
+    
+    <div id="aiChatLogs" class="ai-chat-logs">
+      <div class="chat-message bot">
+        Hello! I am your AI Weather Assistant. Ask me anything about the current weather conditions or for recommendations!
+      </div>
+      <div class="chat-chips">
+        <button class="chat-chip-btn">Should I carry an umbrella today?</button>
+        <button class="chat-chip-btn">Can I go outside for a run?</button>
+        <button class="chat-chip-btn">What should I wear today?</button>
+      </div>
+    </div>
+
+    <form id="aiChatForm" class="ai-chat-form">
+      <input type="text" id="aiChatInput" placeholder="Ask about the weather..." autocomplete="off" required />
+      <button type="submit" class="ai-send-btn" aria-label="Send Message">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+      </button>
+    </form>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
